@@ -1,0 +1,1 @@
+# model_of_segregation_Shcelling
