@@ -3,14 +3,33 @@ import pygame
 
 
 class Grid:
-    def __init__(self, width, height, ratio, empty, thresh_a, thresh_b, screen, screen_width, screen_height):
-        self.pad = 400
-        self.width = width
-        self.height = height
-        self.size = width * height
+    """The class that creates the grid and agents inside it
+
+    parameters
+    ******************************
+    horizontal_spaces  : int
+        The number of horizontal_spaces in the grid.
+    vertical_spaces  : int
+        The number of vertical_spaces  in the grid.
+    ratio :  float
+            the ration of  gray agents to red agents.
+    empty : float
+            the percentage of empty spaces in the grid.
+    thresh_a : float
+            the min percentage of same neighbours around red agents for them to stay in the same place.
+    thresh_b : float
+            the min percentage of same neighbours around grey agents for them to stay in the same place.
+    """
+
+    def __init__(self, horizontal_spaces, vertical_spaces, ratio,
+                 empty, thresh_a, thresh_b, screen, screen_width, screen_height):
+        self.right_pad = 400
+        self.horizontal_spaces = horizontal_spaces
+        self.vertical_spaces = vertical_spaces
+        self.total_spaces = horizontal_spaces * vertical_spaces  # number of possible spaces inside grid
         self.ratio = ratio
-        self.empty = int(empty * width * height)
-        self.grid = [[None for _ in range(self.width)] for _ in range(self.height)]
+        self.empty_spaces = int(empty * horizontal_spaces * vertical_spaces)
+        self.grid = [[None for _ in range(self.horizontal_spaces)] for _ in range(self.vertical_spaces)]
         self.thresh_a = thresh_a
         self.thresh_b = thresh_b
         self.screen = screen
@@ -22,76 +41,83 @@ class Grid:
 
     def grid_init(self):
         """Initializes the grid w x h and fills it with group_a agents, group_b agents  and empty spaces at random.
-        0 spaces will represent empty spaces
-        1 spaces will represent group a agents
-        2 spaces will represent group b agents
+        0  will represent empty spaces
+        1  will represent group a agents
+        2  will represent group b agents
         """
-        grid = [0] * self.size
 
-        red = int((self.size - self.empty) * self.ratio / (self.ratio + 1))
-        grey = self.size - self.empty - red
+        # creating an empty list the size of possible spaces
+        g = [0] * self.total_spaces
+
+        # filling it with the  designated number of agents
+        red = int((self.total_spaces - self.empty_spaces) * self.ratio / (self.ratio + 1))
+        grey = self.total_spaces - self.empty_spaces - red
 
         for i in range(red):
-            grid[i] = 1
+            g[i] = 1
         for i in range(red, red + grey):
-            grid[i] = 2
+            g[i] = 2
 
-        random.shuffle(grid)
+        # and shuffling it
+        random.shuffle(g)
 
-        for t in range(self.size):
-            i = t // self.width
-            j = t % self.width
-            if grid[t] == 0:
+        # filling the grid
+        for t in range(self.total_spaces):
+            i = t // self.horizontal_spaces
+            j = t % self.horizontal_spaces
+            if g[t] == 0:
                 self.grid[i][j] = Space((i, j))
-            elif grid[t] == 1:
+            elif g[t] == 1:
                 self.grid[i][j] = Agent(1, (i, j), self.thresh_a, (130, 130, 130))
             else:
                 self.grid[i][j] = Agent(2, (i, j), self.thresh_b, (185, 15, 15))
 
+        # calculates the pixel size of the space block and saves it in self.block
         self.block_calc()
 
     def print_grid(self):
         """prints the grid, for testing purposes."""
-        for i in range(self.height):
+        for i in range(self.vertical_spaces):
             print(self.grid[i][:])
 
     def draw(self):
+        """Drawing grid lines and agents"""
         self.draw_grid()
         self.draw_agents()
-        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width - self.pad, 0),
-                         (self.screen_width - self.pad, self.screen_height), 2)
+        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width - self.right_pad , 0),
+                         (self.screen_width - self.right_pad, self.screen_height), 2)
 
     def draw_grid(self):
         self.screen.fill((245, 245, 245))
 
-        for i in range(self.height + 1):
+        for i in range(self.vertical_spaces + 1):
             pygame.draw.line(self.screen, (0, 0, 0), (self.left_pad, i * self.block + self.top_pad),
-                             (self.width * self.block + self.left_pad, i * self.block + self.top_pad), 1)
-        for j in range(self.width + 1):
+                             (self.horizontal_spaces * self.block + self.left_pad, i * self.block + self.top_pad), 1)
+        for j in range(self.horizontal_spaces + 1):
             pygame.draw.line(self.screen, (0, 0, 0), (j * self.block + self.left_pad, self.top_pad),
-                             (j * self.block + self.left_pad, self.height * self.block + self.top_pad), 1)
+                             (j * self.block + self.left_pad, self.vertical_spaces * self.block + self.top_pad), 1)
 
     def block_calc(self):
         """Calculates the block that will be used to create the grid."""
-        if self.width > self.height:
-            self.block = (self.screen_width - self.pad)/ self.width
-        elif self.height > self.width:
-            self.block = self.screen_height/ self.height
+        if self.horizontal_spaces > self.vertical_spaces:
+            self.block = (self.screen_width - self.right_pad ) / self.horizontal_spaces
+        elif self.vertical_spaces > self.horizontal_spaces:
+            self.block = self.screen_height / self.vertical_spaces
         else:
-            self.block = self.screen_height/ self.height
+            self.block = self.screen_height / self.vertical_spaces
 
-        self.top_pad = (self.screen_height - self.height * self.block) / 2
-        self.left_pad = (self.screen_width - self.pad - self.width * self.block) / 2
+        self.top_pad = (self.screen_height - self.vertical_spaces * self.block) / 2
+        self.left_pad = (self.screen_width - self.right_pad - self.horizontal_spaces * self.block) / 2
 
     def draw_agents(self):
         """Draws the agents in the grid"""
-        for x in range(self.width):
-            for y in range(self.height):
+        for x in range(self.horizontal_spaces):
+            for y in range(self.vertical_spaces):
                 a = self.grid[y][x]
                 if isinstance(a, Agent):
                     pygame.draw.circle(self.screen, a.color,
-                                     (x * self.block + self.block/2 + self.left_pad,
-                                      y * self.block + self.block/2 + self.top_pad), self.block/2 - 1)
+                                       (x * self.block + self.block / 2 + self.left_pad,
+                                        y * self.block + self.block / 2 + self.top_pad), self.block / 2 - 1)
 
 
 class Agent:
@@ -174,5 +200,3 @@ class Space:
 
     def __repr__(self):
         return "0"
-
-
