@@ -15,9 +15,8 @@ screen.fill((255, 255, 255))
 
 terminate = False
 
-
 # create grid
-test_grid = Grid(25, 40, 0.25, 0.3, 0.2, 0.3, screen, screen_width, screen_height)
+test_grid = Grid(30, 40, 0.25, 0.5, 0.2, 0.3, screen, screen_width, screen_height)
 test_grid.grid_init()
 
 while not terminate:

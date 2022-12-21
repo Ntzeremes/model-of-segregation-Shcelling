@@ -37,7 +37,7 @@ class Grid:
         self.screen_height = screen_height
         self.block = None
         self.top_pad = None
-        self.left_pad = None
+        self.side_pad = None
 
     def grid_init(self):
         """Initializes the grid w x h and fills it with group_a agents, group_b agents  and empty spaces at random.
@@ -53,8 +53,10 @@ class Grid:
         red = int((self.total_spaces - self.empty_spaces) * self.ratio / (self.ratio + 1))
         grey = self.total_spaces - self.empty_spaces - red
 
+        # grey is 1 in grid
         for i in range(red):
             g[i] = 1
+        # red is 2 in grid
         for i in range(red, red + grey):
             g[i] = 2
 
@@ -67,10 +69,10 @@ class Grid:
             j = t % self.horizontal_spaces
             if g[t] == 0:
                 self.grid[i][j] = Space((i, j))
-            elif g[t] == 1:
-                self.grid[i][j] = Agent(1, (i, j), self.thresh_a, (130, 130, 130))
-            else:
-                self.grid[i][j] = Agent(2, (i, j), self.thresh_b, (185, 15, 15))
+            elif g[t] == 1:  # greys
+                self.grid[i][j] = Agent(1, (i, j))
+            else:  # reds
+                self.grid[i][j] = Agent(2, (i, j))
 
         # calculates the pixel size of the space block and saves it in self.block
         self.block_calc()
@@ -84,30 +86,32 @@ class Grid:
         """Drawing grid lines and agents"""
         self.draw_grid()
         self.draw_agents()
-        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width - self.right_pad , 0),
+        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width - self.right_pad, 0),
                          (self.screen_width - self.right_pad, self.screen_height), 2)
 
     def draw_grid(self):
         self.screen.fill((245, 245, 245))
 
         for i in range(self.vertical_spaces + 1):
-            pygame.draw.line(self.screen, (0, 0, 0), (self.left_pad, i * self.block + self.top_pad),
-                             (self.horizontal_spaces * self.block + self.left_pad, i * self.block + self.top_pad), 1)
+            pygame.draw.line(self.screen, (0, 0, 0), (self.side_pad, i * self.block + self.top_pad),
+                             (self.horizontal_spaces * self.block + self.side_pad, i * self.block + self.top_pad), 1)
         for j in range(self.horizontal_spaces + 1):
-            pygame.draw.line(self.screen, (0, 0, 0), (j * self.block + self.left_pad, self.top_pad),
-                             (j * self.block + self.left_pad, self.vertical_spaces * self.block + self.top_pad), 1)
+            pygame.draw.line(self.screen, (0, 0, 0), (j * self.block + self.side_pad, self.top_pad),
+                             (j * self.block + self.side_pad, self.vertical_spaces * self.block + self.top_pad), 1)
 
     def block_calc(self):
         """Calculates the block that will be used to create the grid."""
         if self.horizontal_spaces > self.vertical_spaces:
-            self.block = (self.screen_width - self.right_pad ) / self.horizontal_spaces
+            self.block = (self.screen_width - self.right_pad) / self.horizontal_spaces
         elif self.vertical_spaces > self.horizontal_spaces:
             self.block = self.screen_height / self.vertical_spaces
         else:
             self.block = self.screen_height / self.vertical_spaces
 
+        # creates a top pad if horizontal spaces are more than vertical
         self.top_pad = (self.screen_height - self.vertical_spaces * self.block) / 2
-        self.left_pad = (self.screen_width - self.right_pad - self.horizontal_spaces * self.block) / 2
+        # creates a side pad if horizontal spaces are more than vertical
+        self.side_pad = (self.screen_width - self.right_pad - self.horizontal_spaces * self.block) / 2
 
     def draw_agents(self):
         """Draws the agents in the grid"""
@@ -116,8 +120,25 @@ class Grid:
                 a = self.grid[y][x]
                 if isinstance(a, Agent):
                     pygame.draw.circle(self.screen, a.color,
-                                       (x * self.block + self.block / 2 + self.left_pad,
+                                       (x * self.block + self.block / 2 + self.side_pad,
                                         y * self.block + self.block / 2 + self.top_pad), self.block / 2 - 1)
+
+    def migration(self):
+        """Starting from the first cell of the grid and moving on, checks if each agent is satisfied in his current
+        position by comparing tolerance with threshold. Moves the agents that are not happy to new spaces that satisfy
+        their thresholds
+
+        :return: None
+        """
+
+        for j in range(self.vertical_spaces):
+            for i in range(self.horizontal_spaces):
+                obj = self.grid[j][i]
+
+                # if obj.group is not 0 it must be an agent
+                if obj.group != 0:
+                    # calculate the current tolerance and compare it to threshold
+                    pass
 
 
 class Agent:
@@ -126,15 +147,17 @@ class Agent:
         that belong  to the same group. Happiness is the current status of the agent depending on the neighbors if it
         is lower than the threshold the agent will change neighborhood. """
 
-    def __init__(self, group, pos, threshold, color):
+    def __init__(self, group, pos):
         self.group = group
         self.x = pos[0]
         self.y = pos[1]
-        self.threshold = threshold
         self.happiness = None
-        self.color = color
+        self.color = self.set_color()
 
-    def calc_happiness(self, width, height, grid):
+    def set_color(self):
+        return (130, 130, 130) if self.group == 1 else (185, 15, 15)
+
+    def calc_tolerance(self, width, height, grid):
         """percentage of neighbors that belong to the same group as the agent"""
         min_x = 0 if self.x == 0 else self.x - 1
         max_x = width if self.x == width else self.x + 1
@@ -163,13 +186,14 @@ class Space:
     """It is the class that represents the empty space on which agents can move on."""
 
     def __init__(self, pos):
+        self.group = 0
         self.x = pos[0]
         self.y = pos[1]
         self.group_a = None
         self.group_b = None
         self.distance = None
 
-    def cal_happiness(self, width, height, grid):
+    def calc_tolerance(self, width, height, grid):
         """Calculates the percentage of each neighbor group around the empty space"""
         min_x = 0 if self.x == 0 else self.x - 1
         max_x = width if self.x == width else self.x + 1
@@ -195,8 +219,8 @@ class Space:
         self.group_b = group_b
 
     def calc_distance(self, agent_x, agent_y):
-        """Calculates the distance from a specific agent"""
-        self.distance = ((self.x - agent_x) ** 2 + (self.y - agent_y) ** 2) ** 0.5
+        """Calculates the manhatan distance from a specific agent"""
+        self.distance = abs(self.x - agent_x) + abs(self.y - agent_y)
 
     def __repr__(self):
         return "0"
