@@ -1,5 +1,8 @@
 import random
 import pygame
+import math
+
+full_rads = 2 * math.pi
 
 
 class Grid:
@@ -12,13 +15,13 @@ class Grid:
     vertical_spaces  : int
         The number of vertical_spaces  in the grid.
     ratio :  float
-            the ration of  gray agents to red agents.
+            the ration of  O agents to X agents.
     empty : float
             the percentage of empty spaces in the grid.
     thresh_a : float
-            the min percentage of same neighbours around red agents for them to stay in the same place.
+            the min percentage of same neighbours around O agents for them to stay in the same place.
     thresh_b : float
-            the min percentage of same neighbours around grey agents for them to stay in the same place.
+            the min percentage of same neighbours around X agents for them to stay in the same place.
     """
 
     def __init__(self, horizontal_spaces, vertical_spaces, ratio,
@@ -53,10 +56,10 @@ class Grid:
         red = int((self.total_spaces - self.empty_spaces) * self.ratio / (self.ratio + 1))
         grey = self.total_spaces - self.empty_spaces - red
 
-        # grey is 1 in grid
+        # O is 1 in grid
         for i in range(red):
             g[i] = 1
-        # red is 2 in grid
+        # X is 2 in grid
         for i in range(red, red + grey):
             g[i] = 2
 
@@ -118,10 +121,21 @@ class Grid:
         for x in range(self.horizontal_spaces):
             for y in range(self.vertical_spaces):
                 a = self.grid[y][x]
-                if isinstance(a, Agent):
-                    pygame.draw.circle(self.screen, a.color,
-                                       (x * self.block + self.block / 2 + self.side_pad,
-                                        y * self.block + self.block / 2 + self.top_pad), self.block / 2 - 1)
+                if a.group == 1:
+                    pygame.draw.arc(self.screen, (0, 0, 0),
+                                    (x * self.block + self.side_pad + 2,
+                                     y * self.block + self.top_pad + 2, self.block - 2, self.block - 2),
+                                    0, full_rads, width=3)
+
+                elif a.group == 2:
+                    pygame.draw.line(self.screen, (0, 0, 0),
+                                     (self.side_pad + x * self.block + 1, self.top_pad + y * self.block + 1),
+                                     (self.side_pad + x * self.block + self.block - 1,
+                                      self.top_pad + y * self.block + self.block - 1), 3)
+                    pygame.draw.line(self.screen, (0, 0, 0), (x * self.block + self.block + self.side_pad - 1,
+                                                              self.top_pad + y * self.block + 1),
+                                     (x * self.block + self.side_pad + 1,
+                                      y * self.block + self.block + self.top_pad - 1), 3)
 
     def migration(self):
         """Starting from the first cell of the grid and moving on, checks if each agent is satisfied in his current
@@ -136,9 +150,34 @@ class Grid:
                 obj = self.grid[j][i]
 
                 # if obj.group is not 0 it must be an agent
+                # noinspection PyUnresolvedReferences
                 if obj.group != 0:
                     # calculate the current tolerance and compare it to threshold
-                    pass
+                    # noinspection PyUnresolvedReferences
+                    if obj.group == 1:
+                        # checking threshold
+                        if obj.calc_tolerance() > self.thresh_a:  # move agent
+
+                            # search for nearest free space with acceptable tolerance
+
+                            pass
+
+    def free_space(self, agent):
+        """
+        Searches the area around an agent progressively to find and empty space with tolerance bellow the agents
+        threshold.
+
+        :param agent: the object agent that needs to migrate.
+        :return: tuple - the position of the available space that the agent can migrate.
+        """
+        x = agent.x
+        y = agent.y
+
+        min_x = 0 if x == 0 else x - 1
+        max_x = self.horizontal_spaces if x == self.horizontal_spaces else x + 1
+
+        min_y = 0 if y == 0 else y - 1
+        max_y = self.vertical_spaces if y == self.vertical_spaces else y + 1
 
 
 class Agent:
@@ -152,10 +191,6 @@ class Agent:
         self.x = pos[0]
         self.y = pos[1]
         self.happiness = None
-        self.color = self.set_color()
-
-    def set_color(self):
-        return (130, 130, 130) if self.group == 1 else (185, 15, 15)
 
     def calc_tolerance(self, width, height, grid):
         """percentage of neighbors that belong to the same group as the agent"""
@@ -217,10 +252,6 @@ class Space:
 
         self.group_a = group_a
         self.group_b = group_b
-
-    def calc_distance(self, agent_x, agent_y):
-        """Calculates the manhatan distance from a specific agent"""
-        self.distance = abs(self.x - agent_x) + abs(self.y - agent_y)
 
     def __repr__(self):
         return "0"
