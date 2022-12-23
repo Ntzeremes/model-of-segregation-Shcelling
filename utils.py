@@ -32,7 +32,8 @@ class Grid:
         self.total_spaces = horizontal_spaces * vertical_spaces  # number of possible spaces inside grid
         self.ratio = ratio
         self.empty_spaces = int(empty * horizontal_spaces * vertical_spaces)
-        self.grid = [[None for _ in range(self.horizontal_spaces)] for _ in range(self.vertical_spaces)]
+        self.grid = [[0 for _ in range(self.horizontal_spaces)] for _ in range(self.vertical_spaces)]
+        self.space_array = []
         self.thresh_a = thresh_a
         self.thresh_b = thresh_b
         self.screen = screen
@@ -71,7 +72,7 @@ class Grid:
             i = t // self.horizontal_spaces
             j = t % self.horizontal_spaces
             if g[t] == 0:
-                self.grid[i][j] = Space((i, j))
+                self.space_array.append(Space((i, j)))
             elif g[t] == 1:  # greys
                 self.grid[i][j] = Agent(1, (i, j))
             else:  # reds
@@ -121,21 +122,22 @@ class Grid:
         for x in range(self.horizontal_spaces):
             for y in range(self.vertical_spaces):
                 a = self.grid[y][x]
-                if a.group == 1:
-                    pygame.draw.arc(self.screen, (0, 0, 0),
-                                    (x * self.block + self.side_pad + 2,
-                                     y * self.block + self.top_pad + 2, self.block - 2, self.block - 2),
-                                    0, full_rads, width=3)
+                if isinstance(a, Agent):
+                    if a.group == 1:
+                        pygame.draw.arc(self.screen, (0, 0, 0),
+                                        (x * self.block + self.side_pad + 2,
+                                         y * self.block + self.top_pad + 2, self.block - 2, self.block - 2),
+                                        0, full_rads, width=3)
 
-                elif a.group == 2:
-                    pygame.draw.line(self.screen, (0, 0, 0),
-                                     (self.side_pad + x * self.block + 1, self.top_pad + y * self.block + 1),
-                                     (self.side_pad + x * self.block + self.block - 1,
-                                      self.top_pad + y * self.block + self.block - 1), 3)
-                    pygame.draw.line(self.screen, (0, 0, 0), (x * self.block + self.block + self.side_pad - 1,
-                                                              self.top_pad + y * self.block + 1),
-                                     (x * self.block + self.side_pad + 1,
-                                      y * self.block + self.block + self.top_pad - 1), 3)
+                    elif a.group == 2:
+                        pygame.draw.line(self.screen, (0, 0, 0),
+                                         (self.side_pad + x * self.block + 1, self.top_pad + y * self.block + 1),
+                                         (self.side_pad + x * self.block + self.block - 1,
+                                          self.top_pad + y * self.block + self.block - 1), 3)
+                        pygame.draw.line(self.screen, (0, 0, 0), (x * self.block + self.block + self.side_pad - 1,
+                                                                  self.top_pad + y * self.block + 1),
+                                         (x * self.block + self.side_pad + 1,
+                                          y * self.block + self.block + self.top_pad - 1), 3)
 
     def migration(self):
         """Starting from the first cell of the grid and moving on, checks if each agent is satisfied in his current
@@ -148,24 +150,39 @@ class Grid:
         for j in range(self.vertical_spaces):
             for i in range(self.horizontal_spaces):
                 obj = self.grid[j][i]
-
                 # if obj.group is not 0 it must be an agent
                 # noinspection PyUnresolvedReferences
-                if obj.group != 0:
+                if isinstance(obj, Agent):
                     # calculate the current tolerance and compare it to threshold
                     # noinspection PyUnresolvedReferences
                     if obj.group == 1:
                         # checking threshold
-                        if obj.calc_tolerance() > self.thresh_a:  # move agent
+                        print(obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid))
+                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_a:
 
-                            # search for nearest free space with acceptable tolerance
+                            print("1 needs to move")
 
-                            pass
+                            new_y, new_x = self.free_space(obj)
+                            self.grid[new_y][new_x] = Agent(1, (new_x, new_y))
+
+                            self.grid[j][i] = 0
+
+                            self.space_array.insert(0, Space((i, j)))
+
+                    else:
+                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_a:
+
+                            new_y, new_x = self.free_space(obj)
+                            self.grid[new_y][new_x] = Agent(2, (new_x, new_y))
+
+                            self.grid[j][i] = 0
+
+                            self.space_array.insert(0, Space((i, j)))
 
     def free_space(self, agent):
         """
-        Searches the area around an agent progressively to find and empty space with tolerance bellow the agents
-        threshold.
+        Checks the array of spaces for any available space the distance and threshold to find and empty space with
+        tolerance bellow the agents threshold and returns it
 
         :param agent: the object agent that needs to migrate.
         :return: tuple - the position of the available space that the agent can migrate.
@@ -173,11 +190,26 @@ class Grid:
         x = agent.x
         y = agent.y
 
-        min_x = 0 if x == 0 else x - 1
-        max_x = self.horizontal_spaces if x == self.horizontal_spaces else x + 1
+        best_space = None
+        pos = None
+        min_dist = 1000
 
-        min_y = 0 if y == 0 else y - 1
-        max_y = self.vertical_spaces if y == self.vertical_spaces else y + 1
+        agent_threshold = self.thresh_a if agent.group == 1 else self.thresh_b
+
+        for i, space in enumerate(self.space_array):
+
+            if space.calc_distance(agent) < min_dist and space.calc_tolerance(self.horizontal_spaces,
+                                                                              self.vertical_spaces,
+                                                                              self.grid) < agent_threshold:
+                min_dist = space.calc_distance(agent)
+                best_space = space
+                pos = i
+                if best_space < 3:
+                    break
+
+        del self.space_array[pos]
+
+        return best_space.y, best_space.x
 
 
 class Agent:
@@ -208,10 +240,13 @@ class Agent:
                 neigh = grid[i][j]
                 if neigh != 0:
                     tot_neigh += 1
-                    if neigh == self.group:
+                    if neigh.group == self.group:
                         same_group += 1
 
+        print(tot_neigh)
+
         self.happiness = same_group / tot_neigh
+        return self.happiness
 
     def __repr__(self):
         return str(self.group)
@@ -226,7 +261,6 @@ class Space:
         self.y = pos[1]
         self.group_a = None
         self.group_b = None
-        self.distance = None
 
     def calc_tolerance(self, width, height, grid):
         """Calculates the percentage of each neighbor group around the empty space"""
@@ -252,6 +286,11 @@ class Space:
 
         self.group_a = group_a
         self.group_b = group_b
+
+    def calc_distance(self, agent):
+        """Calculates the  manhatan distance from a specific agent"""
+        print(abs(self.x - agent.x) + abs(self.y - agent.y))
+        return abs(self.x - agent.x) + abs(self.y - agent.y)
 
     def __repr__(self):
         return "0"
