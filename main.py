@@ -16,7 +16,7 @@ screen.fill((255, 255, 255))
 terminate = False
 
 # create grid
-test_grid = Grid(10, 10, 0.5, 0.5, 0.1, 0.3, screen, screen_width, screen_height)
+test_grid = Grid(5, 5, 0.5, 0.2, 0.7, 0, screen, screen_width, screen_height)
 test_grid.grid_init()
 
 test = False
@@ -35,9 +35,7 @@ while not terminate:
         if event.type == pygame.KEYDOWN:
             # if keydown event happened
             # than printing a string to output
-            print("A key has been pressed")
             if event.key == pygame.K_SPACE:
-                print("space")
                 test = True
 
     pygame.display.flip()

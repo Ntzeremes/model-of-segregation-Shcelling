@@ -54,14 +54,14 @@ class Grid:
         g = [0] * self.total_spaces
 
         # filling it with the  designated number of agents
-        red = int((self.total_spaces - self.empty_spaces) * self.ratio / (self.ratio + 1))
-        grey = self.total_spaces - self.empty_spaces - red
+        o = int((self.total_spaces - self.empty_spaces) * self.ratio)
+        x = self.total_spaces - self.empty_spaces - o
 
         # O is 1 in grid
-        for i in range(red):
+        for i in range(o):
             g[i] = 1
         # X is 2 in grid
-        for i in range(red, red + grey):
+        for i in range(o, o + x):
             g[i] = 2
 
         # and shuffling it
@@ -73,9 +73,9 @@ class Grid:
             j = t % self.horizontal_spaces
             if g[t] == 0:
                 self.space_array.append(Space((i, j)))
-            elif g[t] == 1:  # greys
+            elif g[t] == 1:  # 0 agents
                 self.grid[i][j] = Agent(1, (i, j))
-            else:  # reds
+            else:  # x agents
                 self.grid[i][j] = Agent(2, (i, j))
 
         # calculates the pixel size of the space block and saves it in self.block
@@ -152,32 +152,31 @@ class Grid:
                 obj = self.grid[j][i]
                 # if obj.group is not 0 it must be an agent
                 # noinspection PyUnresolvedReferences
-                if isinstance(obj, Agent):
+                if obj != 0:
                     # calculate the current tolerance and compare it to threshold
                     # noinspection PyUnresolvedReferences
                     if obj.group == 1:
                         # checking threshold
-                        print(obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid))
                         if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_a:
 
-                            print("1 needs to move")
-
                             new_y, new_x = self.free_space(obj)
-                            self.grid[new_y][new_x] = Agent(1, (new_x, new_y))
+                            if new_y:
+                                self.grid[new_y][new_x] = Agent(1, (new_x, new_y))
 
-                            self.grid[j][i] = 0
+                                self.grid[j][i] = 0
 
-                            self.space_array.insert(0, Space((i, j)))
+                                self.space_array.insert(0, Space((i, j)))
 
                     else:
-                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_a:
-
+                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_b:
                             new_y, new_x = self.free_space(obj)
-                            self.grid[new_y][new_x] = Agent(2, (new_x, new_y))
 
-                            self.grid[j][i] = 0
+                            if new_y:
+                                self.grid[new_y][new_x] = Agent(2, (new_x, new_y))
 
-                            self.space_array.insert(0, Space((i, j)))
+                                self.grid[j][i] = 0
+
+                                self.space_array.insert(0, Space((i, j)))
 
     def free_space(self, agent):
         """
@@ -200,16 +199,19 @@ class Grid:
 
             if space.calc_distance(agent) < min_dist and space.calc_tolerance(self.horizontal_spaces,
                                                                               self.vertical_spaces,
-                                                                              self.grid) < agent_threshold:
+                                                                              self.grid, agent.group) < agent_threshold:
                 min_dist = space.calc_distance(agent)
                 best_space = space
                 pos = i
-                if best_space < 3:
+                if best_space.x + best_space.y < 3:
                     break
 
-        del self.space_array[pos]
+        if best_space:
+            del self.space_array[pos]
 
-        return best_space.y, best_space.x
+            return best_space.y, best_space.x
+
+        return None, None
 
 
 class Agent:
@@ -222,7 +224,6 @@ class Agent:
         self.group = group
         self.x = pos[0]
         self.y = pos[1]
-        self.happiness = None
 
     def calc_tolerance(self, width, height, grid):
         """percentage of neighbors that belong to the same group as the agent"""
@@ -243,10 +244,7 @@ class Agent:
                     if neigh.group == self.group:
                         same_group += 1
 
-        print(tot_neigh)
-
-        self.happiness = same_group / tot_neigh
-        return self.happiness
+        return same_group / tot_neigh if tot_neigh != 0 else 0
 
     def __repr__(self):
         return str(self.group)
@@ -259,10 +257,8 @@ class Space:
         self.group = 0
         self.x = pos[0]
         self.y = pos[1]
-        self.group_a = None
-        self.group_b = None
 
-    def calc_tolerance(self, width, height, grid):
+    def calc_tolerance(self, width, height, grid, agent_group):
         """Calculates the percentage of each neighbor group around the empty space"""
         min_x = 0 if self.x == 0 else self.x - 1
         max_x = width if self.x == width else self.x + 1
@@ -271,25 +267,21 @@ class Space:
         max_y = height if self.y == height else self.y + 1
 
         tot_neigh = 0
-        group_a = 0
-        group_b = 0
+        group_neigh = 0
 
         for i in range(min_x, max_x):
             for j in range(min_y, max_y):
                 neigh = grid[i][j]
-                if neigh == 1:
-                    group_a += 1
+                if neigh != 0:
                     tot_neigh += 1
-                elif neigh == 2:
-                    group_b += 1
-                    tot_neigh += 1
+                    if neigh.group == agent_group:
+                        group_neigh += 1
 
-        self.group_a = group_a
-        self.group_b = group_b
+        return group_neigh / tot_neigh if tot_neigh != 0 else 0
 
     def calc_distance(self, agent):
         """Calculates the  manhatan distance from a specific agent"""
-        print(abs(self.x - agent.x) + abs(self.y - agent.y))
+        print("distance", abs(self.x - agent.x) + abs(self.y - agent.y))
         return abs(self.x - agent.x) + abs(self.y - agent.y)
 
     def __repr__(self):
