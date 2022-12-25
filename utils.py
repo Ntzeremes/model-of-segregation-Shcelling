@@ -15,7 +15,7 @@ class Grid:
     vertical_spaces  : int
         The number of vertical_spaces  in the grid.
     ratio :  float
-            the ration of  O agents to X agents.
+            the percentage of possible spaces filled with  O agents.
     empty : float
             the percentage of empty spaces in the grid.
     thresh_a : float
@@ -85,6 +85,15 @@ class Grid:
         """prints the grid, for testing purposes."""
         for i in range(self.vertical_spaces):
             print(self.grid[i][:])
+
+    def print_agents_numb(self):
+        n = 0
+        for t in range(self.total_spaces):
+            i = t // self.horizontal_spaces
+            j = t % self.horizontal_spaces
+            if self.grid[i][j] != 0:
+                n += 1
+        print(n)
 
     def draw(self):
         """Drawing grid lines and agents"""
@@ -157,7 +166,7 @@ class Grid:
                     # noinspection PyUnresolvedReferences
                     if obj.group == 1:
                         # checking threshold
-                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_a:
+                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) < self.thresh_a:
 
                             new_y, new_x = self.free_space(obj)
                             if new_y:
@@ -168,7 +177,7 @@ class Grid:
                                 self.space_array.insert(0, Space((i, j)))
 
                     else:
-                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) > self.thresh_b:
+                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) < self.thresh_b:
                             new_y, new_x = self.free_space(obj)
 
                             if new_y:
@@ -199,12 +208,10 @@ class Grid:
 
             if space.calc_distance(agent) < min_dist and space.calc_tolerance(self.horizontal_spaces,
                                                                               self.vertical_spaces,
-                                                                              self.grid, agent.group) < agent_threshold:
+                                                                              self.grid, agent.group) > agent_threshold:
                 min_dist = space.calc_distance(agent)
                 best_space = space
                 pos = i
-                if best_space.x + best_space.y < 3:
-                    break
 
         if best_space:
             del self.space_array[pos]
@@ -244,7 +251,7 @@ class Agent:
                     if neigh.group == self.group:
                         same_group += 1
 
-        return same_group / tot_neigh if tot_neigh != 0 else 0
+        return (same_group - 1)/ (tot_neigh - 1) if tot_neigh - 1 != 0 else 0
 
     def __repr__(self):
         return str(self.group)
@@ -281,7 +288,6 @@ class Space:
 
     def calc_distance(self, agent):
         """Calculates the  manhatan distance from a specific agent"""
-        print("distance", abs(self.x - agent.x) + abs(self.y - agent.y))
         return abs(self.x - agent.x) + abs(self.y - agent.y)
 
     def __repr__(self):

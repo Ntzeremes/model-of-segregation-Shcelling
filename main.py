@@ -16,8 +16,9 @@ screen.fill((255, 255, 255))
 terminate = False
 
 # create grid
-test_grid = Grid(5, 5, 0.5, 0.2, 0.7, 0, screen, screen_width, screen_height)
+test_grid = Grid(20, 20, 0.7, 0.5, 0.4, 0.7, screen, screen_width, screen_height)
 test_grid.grid_init()
+test_grid.print_agents_numb()
 
 test = False
 
@@ -26,6 +27,7 @@ while not terminate:
 
     if test:
         test_grid.migration()
+        test_grid.print_agents_numb()
         test = False
 
     for event in pygame.event.get():
