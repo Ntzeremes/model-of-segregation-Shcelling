@@ -1,6 +1,7 @@
 import random
 import pygame
 import math
+import random
 
 full_rads = 2 * math.pi
 
@@ -64,6 +65,7 @@ class Grid:
         for i in range(o, o + x):
             g[i] = 2
 
+        random.seed(1)
         # and shuffling it
         random.shuffle(g)
 
@@ -72,11 +74,11 @@ class Grid:
             i = t // self.horizontal_spaces
             j = t % self.horizontal_spaces
             if g[t] == 0:
-                self.space_array.append(Space((i, j)))
+                self.space_array.append(Space((j, i)))
             elif g[t] == 1:  # 0 agents
-                self.grid[i][j] = Agent(1, (i, j))
+                self.grid[i][j] = Agent(1, (j, i))
             else:  # x agents
-                self.grid[i][j] = Agent(2, (i, j))
+                self.grid[i][j] = Agent(2, (j, i))
 
         # calculates the pixel size of the space block and saves it in self.block
         self.block_calc()
@@ -85,15 +87,6 @@ class Grid:
         """prints the grid, for testing purposes."""
         for i in range(self.vertical_spaces):
             print(self.grid[i][:])
-
-    def print_agents_numb(self):
-        n = 0
-        for t in range(self.total_spaces):
-            i = t // self.horizontal_spaces
-            j = t % self.horizontal_spaces
-            if self.grid[i][j] != 0:
-                n += 1
-        print(n)
 
     def draw(self):
         """Drawing grid lines and agents"""
@@ -133,18 +126,18 @@ class Grid:
                 a = self.grid[y][x]
                 if isinstance(a, Agent):
                     if a.group == 1:
-                        pygame.draw.arc(self.screen, (0, 0, 0),
+                        pygame.draw.arc(self.screen, (255, 0, 0),
                                         (x * self.block + self.side_pad + 2,
                                          y * self.block + self.top_pad + 2, self.block - 2, self.block - 2),
                                         0, full_rads, width=3)
 
                     elif a.group == 2:
-                        pygame.draw.line(self.screen, (0, 0, 0),
+                        pygame.draw.line(self.screen, (0, 0, 255),
                                          (self.side_pad + x * self.block + 1, self.top_pad + y * self.block + 1),
                                          (self.side_pad + x * self.block + self.block - 1,
                                           self.top_pad + y * self.block + self.block - 1), 3)
-                        pygame.draw.line(self.screen, (0, 0, 0), (x * self.block + self.block + self.side_pad - 1,
-                                                                  self.top_pad + y * self.block + 1),
+                        pygame.draw.line(self.screen, (0, 0, 255), (x * self.block + self.block + self.side_pad - 1,
+                                                                    self.top_pad + y * self.block + 1),
                                          (x * self.block + self.side_pad + 1,
                                           y * self.block + self.block + self.top_pad - 1), 3)
 
@@ -164,23 +157,21 @@ class Grid:
                 if obj != 0:
                     # calculate the current tolerance and compare it to threshold
                     # noinspection PyUnresolvedReferences
+                    tolerance = obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid)
                     if obj.group == 1:
                         # checking threshold
-                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) < self.thresh_a:
-
+                        if tolerance < self.thresh_a:
                             new_y, new_x = self.free_space(obj)
-                            if new_y:
+                            if new_y is not None:
                                 self.grid[new_y][new_x] = Agent(1, (new_x, new_y))
 
                                 self.grid[j][i] = 0
-
                                 self.space_array.insert(0, Space((i, j)))
 
                     else:
-                        if obj.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid) < self.thresh_b:
+                        if tolerance < self.thresh_b:
                             new_y, new_x = self.free_space(obj)
-
-                            if new_y:
+                            if new_y is not None:
                                 self.grid[new_y][new_x] = Agent(2, (new_x, new_y))
 
                                 self.grid[j][i] = 0
@@ -195,8 +186,6 @@ class Grid:
         :param agent: the object agent that needs to migrate.
         :return: tuple - the position of the available space that the agent can migrate.
         """
-        x = agent.x
-        y = agent.y
 
         best_space = None
         pos = None
@@ -205,10 +194,10 @@ class Grid:
         agent_threshold = self.thresh_a if agent.group == 1 else self.thresh_b
 
         for i, space in enumerate(self.space_array):
-
-            if space.calc_distance(agent) < min_dist and space.calc_tolerance(self.horizontal_spaces,
-                                                                              self.vertical_spaces,
-                                                                              self.grid, agent.group) > agent_threshold:
+            new_tolerance = space.calc_tolerance(self.horizontal_spaces,
+                                 self.vertical_spaces,
+                                 self.grid, agent)
+            if space.calc_distance(agent) < min_dist and  new_tolerance > agent_threshold:
                 min_dist = space.calc_distance(agent)
                 best_space = space
                 pos = i
@@ -235,23 +224,22 @@ class Agent:
     def calc_tolerance(self, width, height, grid):
         """percentage of neighbors that belong to the same group as the agent"""
         min_x = 0 if self.x == 0 else self.x - 1
-        max_x = width if self.x == width else self.x + 1
+        max_x = width if self.x + 1 == width else self.x + 2
 
         min_y = 0 if self.y == 0 else self.y - 1
-        max_y = height if self.y == height else self.y + 1
+        max_y = height if self.y + 1 == height else self.y + 2
 
         tot_neigh = 0
         same_group = 0
-
         for i in range(min_x, max_x):
             for j in range(min_y, max_y):
-                neigh = grid[i][j]
+                neigh = grid[j][i]
                 if neigh != 0:
                     tot_neigh += 1
                     if neigh.group == self.group:
                         same_group += 1
 
-        return (same_group - 1)/ (tot_neigh - 1) if tot_neigh - 1 != 0 else 0
+        return (same_group - 1) / (tot_neigh - 1) if tot_neigh - 1 != 0 else 1
 
     def __repr__(self):
         return str(self.group)
@@ -265,24 +253,27 @@ class Space:
         self.x = pos[0]
         self.y = pos[1]
 
-    def calc_tolerance(self, width, height, grid, agent_group):
+    def calc_tolerance(self, width, height, grid, agent):
         """Calculates the percentage of each neighbor group around the empty space"""
         min_x = 0 if self.x == 0 else self.x - 1
-        max_x = width if self.x == width else self.x + 1
+        max_x = width if self.x + 1 == width else self.x + 2
 
         min_y = 0 if self.y == 0 else self.y - 1
-        max_y = height if self.y == height else self.y + 1
+        max_y = height if self.y + 1 == height else self.y + 2
 
         tot_neigh = 0
         group_neigh = 0
-
+        agent_group = agent.group
+        ag_x = agent.x
+        ag_y = agent.y
         for i in range(min_x, max_x):
             for j in range(min_y, max_y):
-                neigh = grid[i][j]
+                neigh = grid[j][i]
                 if neigh != 0:
-                    tot_neigh += 1
-                    if neigh.group == agent_group:
-                        group_neigh += 1
+                    if not (j == ag_y and i == ag_x):
+                        tot_neigh += 1
+                        if neigh.group == agent_group:
+                            group_neigh += 1
 
         return group_neigh / tot_neigh if tot_neigh != 0 else 0
 
