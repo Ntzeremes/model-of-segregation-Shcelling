@@ -27,7 +27,6 @@ class Grid:
 
     def __init__(self, horizontal_spaces, vertical_spaces, ratio,
                  empty, thresh_a, thresh_b, screen, screen_width, screen_height):
-        self.right_pad = 400
         self.horizontal_spaces = horizontal_spaces
         self.vertical_spaces = vertical_spaces
         self.total_spaces = horizontal_spaces * vertical_spaces  # number of possible spaces inside grid
@@ -92,8 +91,8 @@ class Grid:
         """Drawing grid lines and agents"""
         self.draw_grid()
         self.draw_agents()
-        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width - self.right_pad, 0),
-                         (self.screen_width - self.right_pad, self.screen_height), 2)
+        pygame.draw.line(self.screen, (0, 0, 0), (self.screen_width, 0),
+                         (self.screen_width, self.screen_height), 2)
 
     def draw_grid(self):
         self.screen.fill((245, 245, 245))
@@ -108,7 +107,7 @@ class Grid:
     def block_calc(self):
         """Calculates the block that will be used to create the grid."""
         if self.horizontal_spaces > self.vertical_spaces:
-            self.block = (self.screen_width - self.right_pad) / self.horizontal_spaces
+            self.block = self.screen_width / self.horizontal_spaces
         elif self.vertical_spaces > self.horizontal_spaces:
             self.block = self.screen_height / self.vertical_spaces
         else:
@@ -117,7 +116,7 @@ class Grid:
         # creates a top pad if horizontal spaces are more than vertical
         self.top_pad = (self.screen_height - self.vertical_spaces * self.block) / 2
         # creates a side pad if horizontal spaces are more than vertical
-        self.side_pad = (self.screen_width - self.right_pad - self.horizontal_spaces * self.block) / 2
+        self.side_pad = (self.screen_width - self.horizontal_spaces * self.block) / 2
 
     def draw_agents(self):
         """Draws the agents in the grid"""
@@ -195,9 +194,9 @@ class Grid:
 
         for i, space in enumerate(self.space_array):
             new_tolerance = space.calc_tolerance(self.horizontal_spaces,
-                                 self.vertical_spaces,
-                                 self.grid, agent)
-            if space.calc_distance(agent) < min_dist and  new_tolerance > agent_threshold:
+                                                 self.vertical_spaces,
+                                                 self.grid, agent)
+            if space.calc_distance(agent) < min_dist and new_tolerance > agent_threshold:
                 min_dist = space.calc_distance(agent)
                 best_space = space
                 pos = i
@@ -208,6 +207,27 @@ class Grid:
             return best_space.y, best_space.x
 
         return None, None
+
+    def calculate_metrics(self):
+        happy = 0
+        tolerance_tot = 0
+        for j in range(self.vertical_spaces):
+            for i in range(self.horizontal_spaces):
+                if self.grid[j][i] != 0:
+                    agent = self.grid[j][i]
+                    tolerance = agent.calc_tolerance(self.horizontal_spaces, self.vertical_spaces, self.grid)
+
+                    tolerance_tot += tolerance
+
+                    if agent.group == 1:
+                        if tolerance >= self.thresh_a:
+                            happy += 1
+                    else:
+                        if tolerance >= self.thresh_b:
+                            happy += 1
+        hap = happy/(self.vertical_spaces * self.horizontal_spaces - self.empty_spaces)
+        tol = tolerance_tot/(self.vertical_spaces * self.horizontal_spaces - self.empty_spaces)
+        return hap, tol
 
 
 class Agent:
@@ -239,7 +259,7 @@ class Agent:
                     if neigh.group == self.group:
                         same_group += 1
 
-        return (same_group - 1) / (tot_neigh - 1) if tot_neigh - 1 != 0 else 1
+        return (same_group - 1) / (tot_neigh - 1) if tot_neigh - 1 != 0 else 0
 
     def __repr__(self):
         return str(self.group)

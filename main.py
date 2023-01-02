@@ -4,7 +4,7 @@ from utils import *
 pygame.init()
 
 # screen size
-screen_width = 1200
+screen_width = 800
 screen_height = 800
 
 # initialize screen window
@@ -16,8 +16,9 @@ screen.fill((255, 255, 255))
 terminate = False
 
 # create grid
-test_grid = Grid(40, 40, 0.5, 0.2, 0.5, 0.6, screen, screen_width, screen_height)
+test_grid = Grid(30, 30, 0.5, 0.15, 0.3, 0.3, screen, screen_width, screen_height)
 test_grid.grid_init()
+print(test_grid.calculate_metrics())
 
 test = False
 
@@ -26,6 +27,7 @@ while not terminate:
 
     if test:
         test_grid.migration()
+        print(test_grid.calculate_metrics())
         test = False
         print()
 
